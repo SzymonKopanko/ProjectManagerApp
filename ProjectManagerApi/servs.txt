@@ -1,0 +1,236 @@
+package skopanko.projectmanagerapi.service;
+
+
+import skopanko.projectmanagerapi.entity.AppUser;
+import skopanko.projectmanagerapi.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public CustomUserDetailsService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        AppUser appUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(appUser.getUsername())
+                .password(appUser.getPassword())
+                .roles("USER")
+                .build();
+    }
+}
+
+package skopanko.projectmanagerapi.service;
+
+import skopanko.projectmanagerapi.entity.AppUser;
+import skopanko.projectmanagerapi.entity.Project;
+import skopanko.projectmanagerapi.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+@Service
+public class ProjectService {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+
+    // Pobierz wszystkie projekty
+    @Transactional(readOnly = true)
+    public List<Project> findAllProjects() {
+        return projectRepository.findAll();
+    }
+
+    @Transactional
+    public List<Project> findAllProjectsByUserId(Long userId) {
+        return projectRepository.findAllProjectsByUserId(userId);
+    }
+
+
+    // Pobierz projekt po ID
+    @Transactional(readOnly = true)
+    public Optional<Project> findProjectById(Long id) {
+        return projectRepository.findById(id);
+    }
+
+    // Dodaj nowy projekt
+    @Transactional
+    public Project saveProject(Project project) {
+        return projectRepository.save(project);
+    }
+
+    // Aktualizuj istniejący projekt
+    @Transactional
+    public Project updateProject(Project project) {
+        return projectRepository.save(project);
+    }
+
+    // Usuń projekt
+    @Transactional
+    public void deleteProject(Long id) {
+        projectRepository.deleteById(id);
+    }
+
+    // Pobierz projekty według nazwy (przeszukując fragment nazwy)
+    @Transactional(readOnly = true)
+    public List<Project> findProjectsByNameContaining(String name) {
+        return projectRepository.findByTitleContaining(name);
+    }
+
+//    @Transactional
+//    public void deleteAppUserFromProject(Long projectId, Long userId) {
+//        projectRepository.deleteAppUserFromProject(projectId, userId);
+//    }
+//
+//    @Transactional
+//    public void deleteTaskFromProject(Long projectId, Long taskId) {
+//        projectRepository.deleteTaskFromProject(projectId, taskId);
+//    }
+}
+package skopanko.projectmanagerapi.service;
+
+import skopanko.projectmanagerapi.entity.Task;
+import skopanko.projectmanagerapi.repository.TaskRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class TaskService {
+
+    @Autowired
+    private TaskRepository taskRepository;
+
+    // Pobierz wszystkie zadania
+    @Transactional(readOnly = true)
+    public List<Task> findAllTasks() {
+        return taskRepository.findAll();
+    }
+
+    // Pobierz zadania po ID
+    @Transactional(readOnly = true)
+    public Optional<Task> findTaskById(Long id) {
+        return taskRepository.findById(id);
+    }
+
+    // Dodaj nowe zadanie
+    @Transactional
+    public Task saveTask(Task task) {
+        return taskRepository.save(task);
+    }
+
+    // Aktualizuj istniejące zadanie
+    @Transactional
+    public Task updateTask(Task task) {
+        return taskRepository.save(task);
+    }
+
+    // Usuń zadanie
+    @Transactional
+    public void deleteTask(Long id) {
+        taskRepository.deleteById(id);
+    }
+
+//    @Transactional
+//    public void deleteUserFromTask(Long taskId, Long userId) {
+//        taskRepository.deleteUserFromTask(taskId, userId);
+//    }
+
+    // Pobierz zadania po ID projektu
+    @Transactional(readOnly = true)
+    public List<Task> findTasksByProjectId(Long projectId) {
+        return taskRepository.findByProjectId(projectId);
+    }
+
+    // Pobierz zadania po statusie ukończenia
+    @Transactional(readOnly = true)
+    public List<Task> findTasksByCompletionStatus(boolean completed) {
+        return taskRepository.findByCompleted(completed);
+    }
+
+    // Pobierz zadania przypisane do danego użytkownika
+    @Transactional(readOnly = true)
+    public List<Task> findTasksByUserId(Long userId) {
+        return taskRepository.findAllTasksByUserId(userId);
+    }
+}
+package skopanko.projectmanagerapi.service;
+
+import skopanko.projectmanagerapi.entity.AppUser;
+import skopanko.projectmanagerapi.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class UserService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // Pobierz wszystkich użytkowników
+    @Transactional(readOnly = true)
+    public List<AppUser> findAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // Pobierz użytkownika po ID
+    @Transactional(readOnly = true)
+    public Optional<AppUser> findUserById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    // Dodaj nowego użytkownika
+    @Transactional
+    public AppUser saveUser(AppUser user) {
+        return userRepository.save(user);
+    }
+
+    public Optional<AppUser> login(String username, String password) {
+        Optional<AppUser> user = userRepository.findByUsername(username);
+        if (user.isPresent()) {
+            if (user.get().getPassword().equals(password)) {return user;}
+
+        }
+        return Optional.empty();
+    }
+
+    // Aktualizuj istniejącego użytkownika
+    @Transactional
+    public AppUser updateUser(AppUser user) {
+        return userRepository.save(user);
+    }
+
+    // Usuń użytkownika
+    @Transactional
+    public void deleteUser(Long id) {
+        userRepository.deleteById(id);
+    }
+
+    // Metoda do wyszukiwania użytkowników po email (jeśli taka funkcja została zdefiniowana w UserRepository)
+    @Transactional(readOnly = true)
+    public AppUser findUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+}
+

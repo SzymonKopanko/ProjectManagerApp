@@ -1,0 +1,197 @@
+package skopanko.projectmanagerapi.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+import skopanko.projectmanagerapi.dto.UserDTO;
+import skopanko.projectmanagerapi.entity.AppUser;
+import skopanko.projectmanagerapi.mapper.UserMapper;
+import skopanko.projectmanagerapi.service.UserService;
+
+import java.util.Base64;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestBody UserDTO userDTO) {
+        AppUser user = UserMapper.toEntity(userDTO);
+        user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        AppUser savedUser = userService.saveUser(user);
+        String encodedCredentials = encodeCredentials(userDTO.getUsername(), userDTO.getPassword());
+        return ResponseEntity.ok(encodedCredentials);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody UserDTO userDTO) {
+        Optional<AppUser> user = userService.login(userDTO.getUsername(), userDTO.getPassword());
+        if (user.isPresent()) {
+            String encodedCredentials = encodeCredentials(userDTO.getUsername(), userDTO.getPassword());
+            return ResponseEntity.ok(encodedCredentials);
+        } else {
+            return ResponseEntity.status(401).build();
+        }
+    }
+
+    private String encodeCredentials(String username, String password) {
+        String credentials = username + ":" + password;
+        return Base64.getEncoder().encodeToString(credentials.getBytes());
+    }
+}
+package skopanko.projectmanagerapi.controller;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import skopanko.projectmanagerapi.dto.ProjectDTO;
+import skopanko.projectmanagerapi.entity.Project;
+import skopanko.projectmanagerapi.mapper.ProjectMapper;
+import skopanko.projectmanagerapi.service.ProjectService;
+import skopanko.projectmanagerapi.service.UserService;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/projects")
+public class ProjectController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
+
+
+    @Autowired
+    private ProjectService projectService;
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping
+    public List<ProjectDTO> getAllProjects(Authentication authentication) {
+        Long userId = userService.findUserByUsername(authentication.getName()).getId();
+        return projectService.findAllProjectsByUserId(userId).stream()
+                .map(ProjectMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Long id, Authentication authentication) {
+        Long userId = userService.findUserByUsername(authentication.getName()).getId();
+        Optional<Project> project = projectService.findProjectById(id);
+        if (project.isPresent() && project.get().getUsers().stream().anyMatch(user -> user.getId().equals(userId))) {
+            return ResponseEntity.ok(ProjectMapper.toDto(project.get()));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping
+    public ProjectDTO createProject(@RequestBody ProjectDTO projectDTO, Authentication authentication) {
+        String username = authentication.getName();
+        logger.info("Creating project for user: {}", username);
+
+        try {
+            Long userId = userService.findUserByUsername(username).getId();
+            Project project = ProjectMapper.toEntity(projectDTO);
+            project.getUsers().add(userService.findUserById(userId).orElseThrow(() -> new RuntimeException("User not found")));
+            Project savedProject = projectService.saveProject(project);
+            return ProjectMapper.toDto(savedProject);
+        } catch (Exception e) {
+            logger.error("Error creating project: ", e);
+            throw e;
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectDTO> updateProject(@PathVariable Long id, @RequestBody ProjectDTO projectDTO, Authentication authentication) {
+        Long userId = userService.findUserByUsername(authentication.getName()).getId();
+        Optional<Project> project = projectService.findProjectById(id);
+        if (project.isPresent() && project.get().getUsers().stream().anyMatch(user -> user.getId().equals(userId))) {
+            Project projectToUpdate = ProjectMapper.toEntity(projectDTO);
+            projectToUpdate.setId(project.get().getId());
+            Project updatedProject = projectService.saveProject(projectToUpdate);
+            return ResponseEntity.ok(ProjectMapper.toDto(updatedProject));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteProject(@PathVariable Long id, Authentication authentication) {
+        Long userId = userService.findUserByUsername(authentication.getName()).getId();
+        Optional<Project> project = projectService.findProjectById(id);
+        if (project.isPresent() && project.get().getUsers().stream().anyMatch(user -> user.getId().equals(userId))) {
+            projectService.deleteProject(id);
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+}
+package skopanko.projectmanagerapi.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+import skopanko.projectmanagerapi.dto.UserDTO;
+import skopanko.projectmanagerapi.entity.AppUser;
+import skopanko.projectmanagerapi.mapper.UserMapper;
+import skopanko.projectmanagerapi.service.UserService;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @GetMapping
+    public List<UserDTO> getAllUsers() {
+        return userService.findAllUsers().stream().map(UserMapper::toDto).collect(Collectors.toList());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
+        return userService.findUserById(id)
+                .map(UserMapper::toDto)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+
+    @PutMapping
+    public ResponseEntity<UserDTO> updateUser(@RequestBody UserDTO userDTO, Authentication authentication) {
+        AppUser loggedInUser = userService.findUserByUsername(authentication.getName());
+        loggedInUser.setUsername(userDTO.getUsername());
+        loggedInUser.setEmail(userDTO.getEmail());
+        if (userDTO.getPassword() != null) {
+            loggedInUser.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        }
+        AppUser updatedUser = userService.saveUser(loggedInUser);
+        return ResponseEntity.ok(UserMapper.toDto(updatedUser));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteUser(Authentication authentication) {
+        AppUser loggedInUser = userService.findUserByUsername(authentication.getName());
+        userService.deleteUser(loggedInUser.getId());
+        return ResponseEntity.ok().build();
+    }
+}

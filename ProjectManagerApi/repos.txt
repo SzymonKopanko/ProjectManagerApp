@@ -1,0 +1,53 @@
+package skopanko.projectmanagerapi.repository;
+
+import org.springframework.data.jpa.repository.Query;
+import skopanko.projectmanagerapi.entity.Project;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface ProjectRepository extends JpaRepository<Project, Long> {
+    List<Project> findByTitleContaining(String name);
+
+    @Query("SELECT t FROM Project t JOIN t.users u WHERE u.id = :userId")
+    List<Project> findAllProjectsByUserId(Long userId);
+
+}
+package skopanko.projectmanagerapi.repository;
+
+import skopanko.projectmanagerapi.entity.Task;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import java.util.List;
+
+@Repository
+public interface TaskRepository extends JpaRepository<Task, Long> {
+    List<Task> findByProjectId(Long projectId);
+
+    @Query("SELECT t FROM Task t JOIN t.users u WHERE u.id = :userId")
+    List<Task> findAllTasksByUserId(Long userId);
+
+    List<Task> findByCompleted(boolean completed);
+
+//    void deleteUserFromTask(Long taskId, Long userId);
+}
+
+package skopanko.projectmanagerapi.repository;
+
+import skopanko.projectmanagerapi.entity.AppUser;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+
+@Repository
+public interface UserRepository extends JpaRepository<AppUser, Long> {
+    AppUser findByEmail(String email);
+    Optional<AppUser> findByUsername(String username);
+
+
+}

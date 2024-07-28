@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: skopanko.projectmanagerapi.ProjectManagerApiApplicationTests
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.172 s -- in skopanko.projectmanagerapi.ProjectManagerApiApplicationTests
